@@ -2,8 +2,19 @@ from fastapi import FastAPI
 from pydantic import BaseModel
 import asyncio
 from typing import List, Union
-from nagad_main_function import *
+from GP_main_function import *
 import uvicorn
+import logging
+
+
+logging.basicConfig(filename="GP_Demo.log",
+                    filemode='w')
+logger = logging.getLogger("GP")
+logger.setLevel(logging.DEBUG)
+file_handler = logging.FileHandler("GP_Demo.log")
+logger.addHandler(file_handler)
+total_done = 0
+total_error = 0
 
 app = FastAPI()
 
@@ -36,22 +47,34 @@ async def process_items(items: Union[Item, List[Item]]):
 async def status():
     return "AI Server in running"
 
-@app.post("/nagad")
+@app.post("/gp")
 async def create_items(items: Union[Item, List[Item]]):
     try:
+        # global total_done
+        # total_done +=1
         results = await process_items(items)
         print("Result Sent to User:", results)
         print("###################################################################################################")
         print(items)
         print("Last Execution Time : ", get_bd_time())
+        # logger.info(f"Time:{get_bd_time()}, Execution Done and Total Successfull Execution : {total_done}")
         return results
+    except Exception as e:
+        global total_error
+        total_error += 1
+        logger.info(f"Time:{get_bd_time()}, Execution Failed and Total Failed Execution : {total_error}, Payload:{items}")
+        logger.error(str(e))
+        return {"AI": f"Error: {str(e)}"}
     finally:
+        global total_done
+        total_done +=1
+        logger.info(f"Time:{get_bd_time()}, Execution Done and Total Successfull Execution : {total_done}, Payload:{items}")
         torch.cuda.empty_cache()
         pass
 
 if __name__ == "__main__":
     try:
-        del nbrtuModel
+        del gpModel
         uvicorn.run(app, host="127.0.0.1", port=8000)
     finally:
         torch.cuda.empty_cache()
